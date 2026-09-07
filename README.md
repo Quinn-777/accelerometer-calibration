@@ -1,6 +1,6 @@
 # accelerometer-calibration
 
-Calibrating an MPU6050 accelerometer against known references,
+Calibrating an MPU-9250/6500/9255 accelerometer against known references,
 in two phases:
 
 **Phase 1 — static.** Six-position calibration using gravity as the
