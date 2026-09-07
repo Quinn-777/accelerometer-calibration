@@ -1,7 +1,6 @@
 // calibration_cube.scad
 // Six-position calibration cube for an MPU-9250/6500/9255 breakout.
-// The sensor bolts into a deep well on the +Z face so that no face
-// is obstructed when the cube is rolled onto it.
+// Each face is engraved with the cube axis its outward normal points along.
 
 // ===== COPY THESE FROM YOUR VERIFIED fit_test.scad =====
 board_x   = 25.0;    // long edge of the PCB
@@ -18,7 +17,16 @@ hole_depth   = 8;
 channel_w    = 12;   // wire exit slot
 channel_h    = 8;
 
+label_size   = 11;   // engraved text height
+label_depth  = 1.0;  // engraving depth
+
 $fn = 48;
+
+module face_label(txt) {
+    linear_extrude(height = label_depth * 2, center = true)
+        text(txt, size = label_size, halign = "center", valign = "center",
+             font = "Liberation Sans:style=Bold");
+}
 
 difference() {
     cube([cube_size, cube_size, cube_size], center = true);
@@ -36,4 +44,13 @@ difference() {
     // wire exit channel through the +Y wall, open at the top edge
     translate([0, cube_size/4, cube_size/2 - channel_h/2 + 0.01])
         cube([channel_w, cube_size/2 + 0.02, channel_h], center = true);
+
+    // ---- engraved face labels ----
+    // +Z sits off-centre to clear the well and the wire channel
+    translate([0, -16, cube_size/2])                face_label("+Z");
+    translate([0, 0, -cube_size/2]) rotate([180,0,0])   face_label("-Z");
+    translate([cube_size/2, 0, 0])  rotate([90,0,90])   face_label("+X");
+    translate([-cube_size/2, 0, 0]) rotate([90,0,-90])  face_label("-X");
+    translate([0, cube_size/2, 0])  rotate([90,0,180])  face_label("+Y");
+    translate([0, -cube_size/2, 0]) rotate([90,0,0])    face_label("-Y");
 }
