@@ -20,3 +20,22 @@ Measured printed pocket: 25 x 16 mm (design 26.2 x 16.2).
 Measured board: 26 x 16 mm.
 Cause: [board larger than assumed / print shrinkage].
 Fix: board_x 25.0 -> 26.0, reprinting.
+
+## 2026-09-09
+
+First mounted measurement, foam pad under the PCB.
+
+-Z position (chip down), 36 samples:
+  ax +25 (sd 21), ay +112 (sd 19), az -8149 (sd 30)
+  vector magnitude 8150 counts, 0.51% below the 8192 nominal
+
+Compared with the earlier hand-held reading (magnitude 8006, ax -300),
+this is a large improvement, which confirms that most of the earlier
+error came from the board not sitting flat rather than from the sensor.
+
+Not usable as calibration data: the foam is elastic, so the board's
+attitude depends on how it happens to compress and is not repeatable
+between mountings. Reworking with M2 nuts as rigid standoffs.
+
+Noise floor, valid regardless of mounting: 20-30 counts sd on all three
+axes, roughly 0.003 g.
