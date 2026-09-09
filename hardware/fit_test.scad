@@ -11,7 +11,7 @@ hole_dy   = 4.5;     // hole centre, distance from board centre along Y
 // ===========================================
 
 fit       = 0.6;     // clearance around the board, per side
-hole_dia  = 2.8;     // M3 self-taps into PLA
+hole_dia  = 3;     // M3 self-taps into PLA
 plate_x   = 45;
 plate_y   = 40;
 plate_z   = 6;
