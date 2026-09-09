@@ -3,12 +3,12 @@
 // Each face is engraved with the cube axis its outward normal points along.
 
 // ===== COPY THESE FROM YOUR VERIFIED fit_test.scad =====
-board_x   = 25.0;    // long edge of the PCB
+board_x   = 26.0;    // long edge of the PCB
 board_y   = 15.0;    // short edge
 hole_dx   = 10.5;    // hole centre, distance from board centre along X
 hole_dy   = 4.5;     // hole centre, distance from board centre along Y
 fit       = 0.6;     // clearance around the board, per side
-hole_dia  = 2.8;     // M3 self-taps into PLA
+hole_dia  = 3.0;     // M3 self-taps into PLA
 // =======================================================
 
 cube_size    = 50;
