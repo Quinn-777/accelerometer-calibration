@@ -3,6 +3,73 @@
 Newest first. Raw counts are at the ±4 g range, where the datasheet gives
 8192 counts per g.
 
+## 2026-10-08 — The 44 Hz claim was wrong; noise and bandwidth measured
+
+**The sensor is an MPU-6500.** WHO_AM_I reads 0x70. The register map gives
+0x70 as MPU-6500 and 0x71 as MPU-9250, so the earlier identification from the
+board's appearance was a guess that happened to be too generous: there is no
+magnetometer on this part. README corrected.
+
+**The stated 44 Hz bandwidth was wrong.** It came from the firmware writing
+0x03 to register 0x1A. On the MPU-6050 that sets the bandwidth of both the
+gyroscope and the accelerometer; on this part it sets the gyroscope's only.
+The accelerometer's filter is in ACCEL_CONFIG2 (0x1D), which no sketch had
+ever written. Its reset value is 0x00, the widest setting, so that is what
+Phase 1 ran at. None of the Phase 1 results change — a low-pass filter passes
+DC unchanged, and six-position calibration measures nothing but DC.
+
+**First attempt to confirm this failed, and the failure is worth recording.**
+`burst_log` was written to read 0x1D before overwriting it. But uploading a
+sketch resets the board, and the IDE reconnecting the serial monitor resets it
+again, so setup() had already run once and written its own value by the time
+the printout appeared. The measurement measured itself. The reported value is
+only meaningful on the first run after a power cycle, and the firmware now
+says so in its own output.
+
+**Measured it instead.** Sensor left still, 1 kHz sampling, all five filter
+settings captured back to back without touching anything:
+
+| Setting | Attenuation at 200–240 Hz | Lag-1 autocorrelation |
+|---|---|---|
+| 20 Hz | −16.4 dB | 0.97 |
+| 41 Hz | −15.0 dB | 0.92 |
+| 92 Hz | −9.0 dB | 0.86 |
+| 184 Hz | none measurable | 0.54 |
+| 460 Hz | −3.4 dB | 0.50–0.85 |
+
+Two calculations with nothing in common — one from the spectrum, one from the
+raw time series — order the five settings identically, with no exceptions. The
+register controls the accelerometer's bandwidth.
+
+**Noise floor.** About 1.0–1.15 counts/√Hz on X and Y in the 20–60 Hz band,
+roughly twice that on Z. The Z excess is not the desk: cross-axis correlations
+are all below 0.15, and real motion would correlate the axes.
+
+**Ambient.** Below 20 Hz the records are dominated by the building, peaking
+near 17 counts/√Hz around 5 Hz — over ten times the sensor's floor, and inside
+the 3–12 Hz band the shake table will use. Still about 200× below the planned
+drive signal, but background records must be taken in the same session as
+loaded ones.
+
+**Three dead ends, recorded so they are not repeated.**
+
+- Comparing the standard deviation of consecutive-sample differences across
+  bandwidths does not work. That estimator assumes consecutive samples are
+  independent; a filter well below Nyquist makes them correlated and the
+  estimator reads low, and reads lower the narrower the filter — precisely the
+  comparison it was being used for. It suggested the noise stopped rising above
+  184 Hz, which was an artifact.
+- At 500 Hz sampling nothing above 250 Hz is observable, so the 460 Hz setting
+  cannot be distinguished from 184 Hz at that rate. Both looked identical for
+  this reason alone.
+- The shallow roll-off was suspected to be spectral leakage from the Hann
+  window. Repeating the analysis with a Blackman-Harris window changed nothing,
+  so it is not leakage. The cause remains unknown.
+
+**Still open.** The measured corners sit above their nominal frequencies and
+the roll-off is gradual. Not explained. It does not affect the conclusion,
+which rests on the ordering rather than on the absolute corner positions.
+
 ## 2026-09-20 — Six-position calibration and independent check
 
 **Z axis, first pair.** With the cube's +Z face up (chip down), the 12 Sept

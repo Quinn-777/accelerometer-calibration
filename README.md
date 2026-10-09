@@ -1,13 +1,13 @@
 # accelerometer-calibration
 
-Calibrating a low-cost MEMS accelerometer (MPU-9250/6500 series) against
-references that do not depend on any other sensor.
+Calibrating a low-cost MEMS accelerometer (MPU-6500) against references that do
+not depend on any other sensor.
 
 - **Phase 1 — static (done).** Six-position calibration using gravity as the
   reference, checked independently at arbitrary tilts.
-- **Phase 2 — dynamic (not started).** A Scotch-yoke shake table producing
+- **Phase 2 — dynamic (in progress).** A Scotch-yoke shake table producing
   sinusoidal motion of known amplitude and frequency, to measure frequency
-  response.
+  response. Parts are in hand; the fixture is being printed.
 
 ## Why
 
@@ -26,6 +26,7 @@ hands-on, how a raw sensor reading becomes a number that can be trusted.
 - [x] Calibration cube printed and inspected
 - [x] Six-position static calibration
 - [x] Independent check at arbitrary orientations
+- [x] Sensor identified from WHO_AM_I, and its noise and bandwidth measured
 - [ ] Phase 2: shake table
 
 ## Phase 1: static calibration against gravity
@@ -88,14 +89,68 @@ to +0.9%), so no single correction factor could remove it.
   which the arbitrary-orientation check then showed (mean 1.0024 g). A refit
   that forces |a| = 1 g at every calibration position removes it (mean 1.0013 g).
 
+## Sensor characterisation: noise and bandwidth
+
+An earlier version of this file stated that the accelerometer's digital
+low-pass filter was set to 44 Hz. That was wrong, and finding out why it was
+wrong turned into a measurement of its own.
+
+The claim came from a line of firmware writing 0x03 to register 0x1A. On the
+MPU-6050 that register sets the bandwidth of both the gyroscope and the
+accelerometer. On this part it sets the gyroscope's only; the accelerometer's
+filter lives in ACCEL_CONFIG2 (0x1D), which the firmware never wrote. Its reset
+value is 0x00, so throughout Phase 1 the accelerometer ran at its widest
+setting, not at 44 Hz.
+
+![Noise spectrum at five filter settings](docs/figures/noise_spectrum.png)
+
+Rather than take the datasheet's word for what 0x1D does, the sensor was left
+still and captured at all five settings back to back, sampling at 1 kHz. Two
+independent measures were taken from the same records:
+
+| Setting | Attenuation at 200–240 Hz | Lag-1 autocorrelation |
+|---|---|---|
+| 20 Hz | −16.4 dB | 0.97 |
+| 41 Hz | −15.0 dB | 0.92 |
+| 92 Hz | −9.0 dB | 0.86 |
+| 184 Hz | none measurable | 0.54 |
+| 460 Hz | −3.4 dB | 0.50–0.85 |
+
+The two columns come from completely different calculations — one from the
+spectrum, one from the time series — and they order the five settings the same
+way, with no exceptions. A narrower setting cuts more high-frequency content
+and makes consecutive samples more alike, which is what a low-pass filter is.
+The register does what the datasheet says it does.
+
+Measured noise density, from the settings whose passband covers the reference
+band: **about 1.0–1.15 counts/√Hz on X and Y**, roughly twice that on Z. At
+±4 g that is about 0.13 mg/√Hz.
+
+Also visible, and relevant to Phase 2: below about 20 Hz the records are
+dominated not by the sensor but by the building. Ambient motion reaches roughly
+17 counts/√Hz near 5 Hz, more than ten times the sensor's own floor, and it sits
+squarely in the 3–12 Hz band the shake table will work in. It is still far below
+the drive signal — at 3 Hz the smallest planned amplitude gives about 3,800
+counts against roughly 13 counts of ambient in a 1 Hz band — but background
+records have to be taken in the same session as loaded ones, not borrowed from
+another evening.
+
+**What is not explained.** The measured roll-off is more gradual than a
+datasheet filter should be, and each corner sits above its nominal frequency.
+Spectral leakage was ruled out by repeating the analysis with a Blackman-Harris
+window, which changed nothing. The cause is still open. It does not affect
+anything above: the ordering is what establishes that the register controls the
+bandwidth, and the Phase 1 results are static measurements that a low-pass
+filter passes unchanged.
+
 ## Hardware
 
 | Item | Detail |
 |---|---|
-| Sensor | MPU-9250/6500/9255 breakout, GY-9250 style, about 25 × 15 mm |
+| Sensor | MPU-6500 on a GY-9250-style breakout, about 25 × 15 mm. WHO_AM_I reads 0x70, which the register map gives as MPU-6500; an MPU-9250 would read 0x71. There is no magnetometer on this board. |
 | Controller | Arduino Mega 2560 |
 | Calibration cube | 50 mm PLA cube, printed on an Elegoo Neptune 3 Pro; sensor sits chip-side down in a 30 mm deep well |
-| Fasteners | M2 × 10 screws; M2 nuts as 1.6 mm spacers under the board |
+| Fasteners | M2 × 10 screws; M2 nuts as 1.6 mm spacers under the board. M3 was the original design, but printed holes come out about 0.3 mm under size and would not take an M3 screw. |
 
 Wiring:
 
@@ -106,63 +161,90 @@ Wiring:
 | SCL | Pin 21 |
 | SDA | Pin 20 |
 
-Sensor settings: ±4 g range (AFS_SEL = 1, nominal 8192 counts/g), digital
-low-pass filter 44 Hz.
+Sensor settings: ±4 g range (AFS_SEL = 1, nominal 8192 counts/g). Accelerometer
+bandwidth is set in ACCEL_CONFIG2 (0x1D) and was left at its reset value for all
+of Phase 1; `firmware/burst_log` sets it explicitly and logs it with every
+record.
 
 ## Reproducing the analysis
 
 ```
 pip install -r requirements.txt
-python analysis/six_position.py
+python analysis/six_position.py      # static calibration and its checks
+python analysis/spectrum.py          # noise spectra from data/*.csv
 ```
 
-The script holds all raw readings, prints the calibration and every check
-above, and writes the figure to `docs/figures/magnitude_check.png`.
+`six_position.py` holds all raw readings inline and writes
+`docs/figures/magnitude_check.png`. `spectrum.py` reads the capture files in
+`data/` and writes `docs/figures/noise_spectrum.png`.
 
 ## Repository layout
 
 ```
 analysis/six_position.py      calibration, cross-checks, validation, figure
+analysis/spectrum.py          noise spectra by filter setting and sample rate
+data/*.csv                    raw captures from firmware/burst_log
 docs/lab-notes.md             dated lab notes, newest first
 docs/figures/                 generated figures
 firmware/i2c_scan/            confirms the sensor answers at 0x68
 firmware/read_raw/            streams raw counts on all three axes
+firmware/burst_log/           buffered capture at a fixed rate, with the
+                              configuration registers logged alongside
 hardware/fit_test.*           quick print to check the pocket and holes
 hardware/calibration_cube.*   50 mm six-position calibration cube
+hardware/yoke_fit_test.*      slot and pin fit coupon for the shake table
+hardware/rod_fit_test.*       bushing fit coupon for the 5 mm guide rods
+hardware/crank.*              Scotch-yoke crank, one per amplitude
+hardware/motor_mount.*        NEMA 17 bracket
 ```
 
 ## Known limitations
 
-- Each reading is the mean of six consecutive serial-monitor lines, not a long
-  average, so each value carries about ±7 counts of random error.
+- Each six-position reading is the mean of six consecutive serial-monitor lines,
+  not a long average, so each value carries about ±7 counts of random error.
 - Remounting repeatability is about 20–40 counts (0.003–0.005 g). This, not
   the arithmetic, limits offset accuracy.
 - The board is tilted about 3.2° in its well because the edge with the pin
   header is unsupported. See the mounting angles above.
 - Cube squareness was checked by measuring between opposite faces
   (49.68 mm on all three axes). That confirms size, not the angles between
-  faces directly.
-- Static range only: ±1 g. Linearity beyond 1 g and frequency response are
-  not tested yet.
+  faces directly, and no squareness tolerance was verified.
+- Static range only: ±1 g. Linearity beyond 1 g is not tested.
 - The model is an offset and a scale factor per axis; cross-axis sensitivity
   is not modelled.
 - Temperature was not recorded, and MEMS offsets drift with temperature.
+- The filter roll-off measured above is shallower than expected and its corners
+  sit high; the cause is unresolved.
 - One sensor, one mounting.
 
-## Phase 2 (planned)
+## Phase 2 (in progress)
 
 A shake table driven by a stepper motor through a Scotch yoke, which turns
-rotation into exactly sinusoidal motion. With the crank offset A measured by
-calipers and the frequency f set by a hardware timer, the peak acceleration
-A(2πf)² is known without any reference sensor. Note for the build: on this
-board the sensor X axis runs along the short edge.
+rotation into exactly sinusoidal motion. With the crank throw A fixed by the
+printed part and the frequency f set by a hardware timer, the peak acceleration
+A(2πf)² is known without any reference sensor.
+
+Three cranks give throws of 13, 9 and 6 mm, covering 3–12 Hz with every point
+between 0.5 and 3.5 g, and overlapping at 6 and 9 Hz so those frequencies can
+be measured at two amplitudes as a cross-check. The upper limit of the range is
+set by the ±4 g full scale at the smallest throw the geometry allows (4 g at
+12.9 Hz), not by the sensor's bandwidth.
+
+A first-order estimate puts the lowest structural mode near 200 Hz, in the
+printed motor bracket rather than the steel guide rods, so structural resonance
+is unlikely to set the usable band. The limits expected to matter instead are
+that full-scale ceiling and backlash in the yoke slot, whose contribution grows
+with frequency. Which dominates will be settled by a harmonic-distortion sweep,
+with the acceptance threshold fixed in the lab notes before any data is taken.
+
+Note for the build: on this board the sensor X axis runs along the short edge.
 
 ## Tools
 
 Arduino IDE, OpenSCAD, ElegooSlicer, Python (NumPy, Matplotlib).
 
 Claude (Anthropic) helped write the firmware, the OpenSCAD models and the
-analysis script, and reviewed the method and results. Printing, assembly,
+analysis scripts, and reviewed the method and results. Printing, assembly,
 wiring and all measurements were done by the author.
 
 ## License
