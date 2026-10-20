@@ -26,19 +26,24 @@
 // oval pin injects a position error at exactly the drive frequency - the one
 // frequency the measurement cannot separate from real motion.
 //
-// The fix is to spin the finished crank and sand the pin round:
-//   1. Slide a 5 mm rod into the shaft bore and lock it with the set screw,
-//      to use as an arbor.
-//   2. Chuck the rod in a drill and run it slowly.
-//   3. Hold 400 grit against the side of the pin, a few seconds at a time.
-//   4. Stop when three caliper readings 60 deg apart agree within 0.05 mm.
-// Expect to finish near 4.2 mm.
+// The fix is to sand the pin round, shoeshine style (CHANGED 2026-10-20):
+//   1. Cut a strip of 400 grit about 1 cm wide and wet it.
+//   2. Wrap it half way round the pin and pull the two ends back and forth,
+//      like polishing a shoe, turning the crank a little every few strokes.
+//   3. Stop when three caliper readings at mid-height, 60 deg apart, agree
+//      within 0.05 mm. Aim for 4.2-4.4 mm; do not go below 4.0.
+//   Work wet, over a damp paper towel, and throw the towel away rather than
+//   rinsing it down the sink - that keeps the PLA dust out of the water.
+//   If the first three readings already agree within 0.05 mm, skip this.
 //
-// This is better than pressing in a steel pin, not a fallback from it. What
-// the measurement cares about is roundness RELATIVE TO THE ROTATION AXIS,
-// and a steel pin pressed into a printed hole inherits whatever eccentricity
-// that hole has. Sanding while the part turns on its own axis cannot: it
-// removes exactly the error being complained about.
+// The earlier version of this note said to spin the crank in a drill on a
+// rod through the shaft bore. That was wrong: it turns the crank about the
+// SHAFT axis, so the pin sweeps a 13 mm circle and only its outer side ever
+// touches the paper. It would grind the pin flat on one side, not round.
+//
+// What the measurement cares about is the pin's roundness and its distance
+// from the shaft axis. The slot test and the 6 / 9 Hz overlap points measure
+// the second one directly, so the pin only has to be round and smooth.
 //
 // A steel screw was never an option: its threads would chew the slot, and its
 // head is an off-centre steel mass driving the frame at the drive frequency.
