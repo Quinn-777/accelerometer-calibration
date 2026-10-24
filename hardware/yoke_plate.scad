@@ -14,11 +14,14 @@
 // ---------------------------------------------------------------------------
 // HOW TO USE IT - one number to set
 //
-//   1. Print yoke_slot_test.scad (about 15 minutes). It has nine short
-//      slots, 1 to 9, modelled 4.80 / 4.90 / ... / 5.60 mm wide, built
+//   1. Caliper the crank pin three times at mid-height, turning it about
+//      60 deg between readings. If they differ by more than 0.05 mm, sand
+//      it round first (see crank.scad). Do this BEFORE step 3: sanding
+//      changes which slot fits.
+//   2. Print yoke_slot_test.scad (about half an hour). It has eighteen
+//      short slots, 1 to 18, modelled 4.50 / 4.60 / ... / 6.20 mm wide, built
 //      exactly like this slot (lead-in, 4 mm land, relief behind) and
 //      printed the same way up.
-//   2. Sand the crank pin round (see crank.scad).
 //   3. Push the pin into each slot and slide it end to end. Pick the
 //      NARROWEST slot it slides along freely, without sticking anywhere.
 //      Unlike the carriage lands, do NOT go a size up: there is only one
@@ -26,8 +29,8 @@
 //      slack here is backlash in the measurement (see "why tight" below).
 //   4. Put that slot's modelled width into slot_w below, export and print.
 //
-// Do not print this until step 4 is done. slot_w = 5.20 is only the middle
-// of the coupon.
+// slot_w = 5.40: slot 10 on the 18-slot coupon slid end to end with an even,
+// light drag and no side play (2026-10-22). Ready to print.
 //
 // CHANGED 2026-10-20. The first plate (slot_w 4.60) measured 4.1 mm across
 // its slot and the first coupon's 5.00 slot measured 4.27: a 10 mm deep
@@ -36,7 +39,7 @@
 // coupon range was moved up.
 // ---------------------------------------------------------------------------
 
-slot_w      = 5.20;    // <-- the modelled width of the slot chosen on yoke_slot_test
+slot_w      = 5.40;    // <-- yoke_slot_test slot 10, chosen 2026-10-22
 print_ready = true;    // lay the front face on the bed for export
 
 $fn = 64;
@@ -86,8 +89,15 @@ tongue_t   = seat_depth - 0.1; // sits in the seat, 0.1 mm short of its floor
 
 m2_clear   = 2.75;             // -> about 2.40 actual
 head_cb_d  = 4.60;             // counterbore for an M2 head (3.8 mm)
-head_cb_h  = 2.5;              // heads sit below the front face: they pass
-                               // within 1-2 mm of the spinning crank disc
+screw_len  = 8.0;              // M2 x 8, the same screws as everywhere else
+car_tap    = 7.0;              // thread depth in the carriage behind its seat
+// CHANGED 2026-10-20: the counterbore used to be 2.5 mm deep, which left
+// 8.4 mm of plate and tongue under the head - an M2 x 8 would not even have
+// reached the carriage. Now the head sits deep enough that an M2 x 8 has
+// 4 mm of thread in the carriage. The heads are then well below the front
+// face, clear of the spinning crank disc.
+under_head = 4.0;              // plate + tongue left under the head
+head_cb_h  = plate_t + tongue_t - under_head;
 land_w     = 4.0;              // the slot is only slot_w wide over this length,
 relief     = 1.0;              // and slot_w + relief wide behind it (see below)
 entry_cham = 1.2;              // 45 deg lead-in on the slot, front face,
@@ -100,11 +110,16 @@ assert(plate_screw_dx - head_cb_d / 2 - slot_w / 2 >= 3.0,
        "screw counterbores too close to the slot");
 assert(plate_screw_dx - m2_clear / 2 - (slot_w + relief) / 2 >= 2.5,
        "screw holes too close to the relieved part of the slot");
+assert(screw_len - under_head >= 3.5 && screw_len - under_head <= car_tap,
+       "M2 screw would not reach far enough into the carriage, or bottoms out");
+assert(plate_screw_dx - head_cb_d / 2 - (slot_w + relief) / 2 >= 2.5,
+       "deep screw counterbores too close to the relieved slot");
 assert(plate_w / 2 - plate_screw_dx - head_cb_d / 2 >= 1.5,
        "screw counterbores too close to the plate edge");
-assert(slot_w >= 4.75 && slot_w <= 5.65,
-       "slot_w should be one of the widths on yoke_slot_test: 4.80 to 5.60");
-assert(slot_half - slot_w / 2 >= max_throw,
+assert(slot_w >= 4.45 && slot_w <= 6.25,
+       "slot_w should be one of the widths on yoke_slot_test: 4.50 to 6.20");
+assert(slot_w >= pin_max - 0.6, "slot narrower than any pin could need");
+assert(slot_half - pin_max / 2 >= max_throw,
        "slot too short for the pin's travel");
 
 echo(str("slot modelled ", slot_w, " mm wide, z ", shaft_z - slot_half,

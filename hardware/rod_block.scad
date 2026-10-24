@@ -34,14 +34,22 @@
 // the rods up and down with shrinkage.
 //
 // ASSEMBLY ORDER
-//   1. Push both rods into block A until they hit the closed ends.
+//   0. Measure the two rods. The design assumes 100 mm; the bar's slotted
+//      holes take anything from 97 to 103 mm. Outside that, change rod_len.
+//   1. Push both rods into block A until they hit the closed ends. A small
+//      vent hole in each closed end lets the air out, so the rod goes all
+//      the way down instead of springing back.
 //   2. Slide the carriage onto the rods.
 //   3. Push block B onto the other ends, until the rods bottom out.
-//   4. Lay the tie bar across the two ledges and screw it down: 4 x M2x8.
+//   4. Slide the carriage to the middle, lay the tie bar across the two
+//      ledges under it and screw it down: 4 x M2x8. With the carriage in
+//      the middle all four screws are clear of it.
 //      Its holes are slots, so it fits whatever the real rod length is.
 //   5. Tighten the four M2 set screws on top just until the rods stop moving.
 //      Do not crank them: the rod only needs to stop moving.
-//   6. Screw both blocks to the base board, 2 screws each.
+//   6. Set both blocks in their pockets in base.scad and screw them down,
+//      2 x M3 each (M3 x 8 to M3 x 14), down the two deep holes in the top.
+//      The M3 threads straight into the base.
 // ---------------------------------------------------------------------------
 
 part = "all";          // "block", "bar", or "all" (two blocks + bar, for a look)
@@ -68,7 +76,8 @@ m2_tap   = 2.25;       // land_fit_test boss E
 m2_clear = 2.75;
 m2_head_cb = 4.6;      // counterbore for an M2 head (3.8 mm)
 board_screw_d = 4.20;  // wood screw #6 / 3.5 mm, or M3
-board_cb_d    = 7.5;   // counterbore for the wood-screw head
+board_cb_d    = 8.5;   // counterbore for the wood-screw head (about 7 mm)
+                       // and the screwdriver that has to reach down it
 
 // --- block -----------------------------------------------------------------
 rod_end_x  = (car_len / 2) - rod_len / 2;   // -27: left rod end
@@ -83,14 +92,16 @@ blk_top    = 34.0;
 // board screws: between the rods, through the block's full height
 board_y    = [9.0, rod_spacing - 9.0];
 board_x    = (x_in + x_out) / 2;
-board_cb_floor = 8.0;  // screw head sits 8 mm above the board: a 20-25 mm
-                       // wood screw then has 12-17 mm in the wood
+board_cb_floor = 4.0;  // CHANGED 2026-10-20 (was 8): the screw passes through
+                       // only 4 mm of plastic, less than the 6 mm foot of
+                       // motor_mount.scad, so any screw that holds the motor
+                       // mount down also holds these - 12 mm long is enough
 
 // set screws: from the top, onto the rod, over the entry land
 set_x      = x_in - land_w / 2;
 
 // ledge for the tie bar, sticking out of the inner face at board level
-ledge_l    = 12.0;     // how far it reaches toward the carriage
+ledge_l    = 14.0;     // how far it reaches toward the carriage
 ledge_y0   = 4.0;
 ledge_y1   = rod_spacing - 4.0;
 ledge_t    = 8.0;      // z 0..8
@@ -102,8 +113,12 @@ bar_t      = 5.0;      // z 8..13
 bar_cb_h   = 2.0;      // head counterbore depth -> 3 mm under the head,
                        // so an M2x8 has 5 mm of thread in the ledge
 bar_slot   = 1.5;      // each hole is a slot +/- this along x
-bar_x0     = x_in + 1.0;                     // left end
-bar_x1     = (car_len - x_in) - 1.0;         // right end, by symmetry
+// The bar's ends stay clear of the block faces even if short rods pull the
+// blocks 1.5 mm closer at each end.
+bar_end_gap = bar_slot + 0.5;
+bar_x0     = x_in + bar_end_gap;             // left end
+bar_x1     = (car_len - x_in) - bar_end_gap; // right end, by symmetry
+vent_d     = 2.0;      // air vent out of the bottom of each blind bore
 bar_y0     = ledge_y0 + 1.0;
 bar_y1     = ledge_y1 - 1.0;
 
@@ -115,12 +130,17 @@ assert(ledge_t + bar_t <= car_z0 - 4,
        "tie bar comes within 4 mm of the carriage underside");
 assert(blk_top - (shaft_z + relief_d / 2) >= 4.5,
        "not enough plastic above the rod for the set screw");
+assert(board_cb_floor <= 6.0, "needs a longer screw than the motor mount does");
 assert(abs(board_y[0] - 0) - board_cb_d / 2 - relief_d / 2 >= 1.5,
        "board-screw counterbore too close to the rod bore");
 assert(board_x - board_cb_d / 2 - x_out >= 2 && x_in - board_x - board_cb_d / 2 >= 2,
        "board-screw counterbore too close to the block faces");
 assert(min(ledge_screw_y) - ledge_y0 >= 3, "ledge screw too near the edge");
 assert(2 * land_w <= grip, "lands longer than the grip");
+assert(ledge_screw_x - bar_slot - m2_head_cb / 2 - bar_x0 >= 1.0,
+       "bar's screw counterbore breaks out of the bar's end");
+assert(x_in + ledge_l - (ledge_screw_x + bar_slot + m2_head_cb / 2) >= -0.01,
+       "bar screw counterbore hangs past the end of the ledge");
 
 // ---- helpers ----------------------------------------------------------------
 // A hole along machine z with a pointed roof toward +x. In the print
@@ -161,7 +181,12 @@ module block() {
             translate([x_in - 0.01, ledge_y0, 0])
                 cube([ledge_l + 0.01, ledge_y1 - ledge_y0, ledge_t]);
         }
-        for (y = [0, rod_spacing]) bore(y);
+        for (y = [0, rod_spacing]) {
+            bore(y);
+            // vent: from the bottom of the bore out through the closed end
+            translate([x_out - 1, y, shaft_z]) rotate([0, 90, 0])
+                cylinder(d = vent_d, h = end_wall + 1.5);
+        }
 
         // set screws onto the rods
         for (y = [0, rod_spacing])
