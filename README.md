@@ -7,7 +7,8 @@ not depend on any other sensor.
   reference, checked independently at arbitrary tilts.
 - **Phase 2 — dynamic (in progress).** A Scotch-yoke shake table producing
   sinusoidal motion of known amplitude and frequency, to measure frequency
-  response. Parts are in hand; the fixture is being printed.
+  response. The table is built and running, and the first 3 Hz capture is in.
+  The drive is not yet reliable enough for calibration data.
 
 ## Why
 
@@ -27,7 +28,12 @@ hands-on, how a raw sensor reading becomes a number that can be trusted.
 - [x] Six-position static calibration
 - [x] Independent check at arbitrary orientations
 - [x] Sensor identified from WHO_AM_I, and its noise and bandwidth measured
-- [ ] Phase 2: shake table
+- [x] Shake table printed, assembled and driven at 3 Hz
+- [x] Y axis recalibrated in place on the carriage
+- [x] First 3 Hz capture
+- [ ] Reliable drive (the crank-to-carriage drive slips; see lab notes, 2026-10-23)
+- [ ] Crank throw measured to better than ±0.1 mm
+- [ ] Frequency sweep, 3–12 Hz
 
 ## Phase 1: static calibration against gravity
 
@@ -172,6 +178,7 @@ record.
 pip install -r requirements.txt
 python analysis/six_position.py      # static calibration and its checks
 python analysis/spectrum.py          # noise spectra from data/*.csv
+python analysis/capture.py 3         # shake table at 3 Hz, one capture
 ```
 
 `six_position.py` holds all raw readings inline and writes
@@ -183,19 +190,30 @@ python analysis/spectrum.py          # noise spectra from data/*.csv
 ```
 analysis/six_position.py      calibration, cross-checks, validation, figure
 analysis/spectrum.py          noise spectra by filter setting and sample rate
-data/*.csv                    raw captures from firmware/burst_log
+analysis/capture.py           runs shake_log over USB, saves each capture,
+                              and warns if the carriage did not move
+data/*.csv                    raw captures from burst_log and shake_log
 docs/lab-notes.md             dated lab notes, newest first
 docs/figures/                 generated figures
 firmware/i2c_scan/            confirms the sensor answers at 0x68
 firmware/read_raw/            streams raw counts on all three axes
 firmware/burst_log/           buffered capture at a fixed rate, with the
                               configuration registers logged alongside
+firmware/motor_test/          drives the stepper alone, no sensor
+firmware/shake_log/           drives the shake table and samples the sensor
+                              in one sketch
 hardware/fit_test.*           quick print to check the pocket and holes
 hardware/calibration_cube.*   50 mm six-position calibration cube
 hardware/yoke_fit_test.*      slot and pin fit coupon for the shake table
 hardware/rod_fit_test.*       bushing fit coupon for the 5 mm guide rods
 hardware/crank.*              Scotch-yoke crank, one per amplitude
 hardware/motor_mount.*        NEMA 17 bracket
+hardware/base.*               base plate
+hardware/carriage.*           sliding carriage that carries the sensor
+hardware/rod_block.*          guide rod end blocks (rod_tie_bar.stl joins them)
+hardware/yoke_plate.*         slotted plate that the crank pin drives
+hardware/yoke_slot_test.*     slot width coupon for the yoke plate
+hardware/land_fit_test.*      rod bore and M2 tap coupon
 ```
 
 ## Known limitations
@@ -239,13 +257,41 @@ with the acceptance threshold fixed in the lab notes before any data is taken.
 
 Note for the build: on this board the sensor X axis runs along the short edge.
 
+### First results (2026-10-23)
+
+**Y axis, recalibrated on the carriage.** Motion is along sensor Y, so Y was
+recalibrated with the sensor already mounted, from five static captures with
+the base standing on end, each corrected for its own tilt (1.4–3.9°):
+8209 counts/g, offset +95 counts. The five agree to ±2.5 counts. Phase 1 gave
+8217 counts/g, so mounting changed the scale by −0.1%.
+
+**First 3 Hz capture** (`data/13mm_3hz_01.csv`, 13 mm crank):
+
+| | Value |
+|---|---|
+| Commanded frequency | 2.9994 Hz |
+| Frequency fitted from the data | 2.9990 Hz |
+| Measured peak acceleration (fundamental, Y) | 0.4546 g |
+| Spread across the six cycles | ±0.8% |
+| Predicted, throw measured as 13.60 ± 0.18 mm | 0.4927 g, ratio 0.923 |
+| Predicted, throw re-measured as 13.07 ± 0.10 mm | 0.4735 g, ratio 0.960 |
+
+The frequency is right to 0.01%, so the gap is in the amplitude. The two throw
+measurements disagree by more than their errors, and the first was taken with
+the carriage pushed outward at each end, which adds any play in the drive to
+the stroke. Until the throw is pinned down, the ratio is somewhere between
+0.92 and 0.96 and is not a calibration result. The motor was also not yet
+bolted to its bracket during this run; it has been since.
+
 ## Tools
 
 Arduino IDE, OpenSCAD, ElegooSlicer, Python (NumPy, Matplotlib).
 
 Claude (Anthropic) helped write the firmware, the OpenSCAD models and the
-analysis scripts, and reviewed the method and results. Printing, assembly,
-wiring and all measurements were done by the author.
+analysis scripts, and reviewed the method and results. The project is a joint
+build with a classmate, from Phase 1 on: the classmate assembled the hardware,
+the author printed the parts and did the wiring, and troubleshooting was
+shared.
 
 ## License
 

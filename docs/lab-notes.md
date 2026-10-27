@@ -3,6 +3,66 @@
 Newest first. Raw counts are at the ±4 g range, where the datasheet gives
 8192 counts per g.
 
+## 2026-10-23 — Shake table running; first 3 Hz capture; drive problems
+
+**Built and wired.** NEMA 17 on a DRV8825 at 24 V, 1/8 microstepping,
+current limit 1 A (Vref 0.5 V), 100 µF across the motor supply. The step
+pulses come from Timer1 in hardware, so the shaft speed is set by the crystal
+and does not depend on the sketch keeping time.
+
+**Y axis recalibrated on the carriage.** Five static captures with the base on
+end, both directions: 8209 counts/g, offset +95 counts, agreeing to ±2.5
+counts after correcting each for its tilt (1.4–3.9°). The magnitude of the
+gravity vector was 8310 counts in all three position-1 files; only its split
+between the axes changed. Phase 1 gave 8217 for Y.
+
+**First 3 Hz capture**, 13 mm crank (`13mm_3hz_01`). Fundamental on Y
+0.4546 g, steady to ±0.8% over six cycles; frequency fitted from the data
+2.9990 Hz against 2.9994 Hz commanded. Against the throw measured that evening
+(13.60 ± 0.18 mm, carriage pushed outward at each end) that is 0.923 of the
+prediction. A later measurement gave 13.07 ± 0.10 mm, one reading per gap,
+which makes it 0.960. The acceleration itself implies a throw of 12.55 mm.
+
+The two throw measurements disagree. Pushing the carriage outward adds the
+play in the drive to the stroke (2A + c); if friction dominates while running,
+the carriage lags by the play at each reversal (2A − c). With 13.60 and 12.55
+that would mean about 1 mm of play. Not yet measured. Next: hold the crank at
+the end of its stroke, where pushing the carriage cannot turn it, and measure
+the play directly; then re-measure the throw three times per gap.
+
+**Things that went wrong, in order.**
+
+- The first 5 Hz capture froze the Mega. A shaken sensor wire made an I2C read
+  hang forever, and the motor kept running because its steps come from the
+  timer, not the sketch. Fixed with an I2C timeout; failed reads are now
+  counted (`i2c_err`) instead of hanging.
+- Readings of −1 and −16385 appeared at 5 Hz: bit errors on about 30 cm of
+  jumper wire being shaken, with the bus at 400 kHz. Dropped to 100 kHz, which
+  still fits a read inside each 2 ms sample at 500 Hz. 1000 Hz sampling is no
+  longer offered.
+- The sketch reported "Reached 5.0000 Hz" while nothing moved: it only knows
+  what it commanded. `capture.py` now fits the drive-frequency amplitude in
+  every capture and warns when it is under 30% of the prediction.
+- The Mega's GND was not connected to the breadboard ground rail, so the
+  driver had no common reference for STEP, DIR and EN. The motor squealed and
+  jittered without turning and the driver ran hot. Connecting it fixed that.
+- The crank and carriage had come apart, so the crank turned and the carriage
+  did not.
+- The motor was held by hand, not bolted to its bracket.
+
+**Seventeen 3 Hz runs after that were unusable.** The amplitude ranged from
+834 to 3828 counts between runs (about 3700 when working), up to 46 samples
+per run hit the ±4 g limit, I2C errors rose to 46 per run, and in one run the
+carriage stood still for three cycles and then started. Something in the
+drive is slipping and it got worse with each run, so testing stopped there to
+avoid wearing the printed parts further. These runs are kept locally, not in
+`data/`.
+
+**Before the next capture:** the motor has since been bolted to its bracket.
+Still to do: draw a line across the shaft end and the crank and run once, to see whether
+the crank slips on the shaft; check that the pin sits in the slot's land;
+tape the sensor connectors and fix the wire bundle to the base.
+
 ## 2026-10-08 — The 44 Hz claim was wrong; noise and bandwidth measured
 
 **The sensor is an MPU-6500.** WHO_AM_I reads 0x70. The register map gives
